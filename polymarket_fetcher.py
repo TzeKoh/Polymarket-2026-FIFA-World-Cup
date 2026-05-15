@@ -400,14 +400,19 @@ setInterval(fetchData,60000);
 def index():
     return DASHBOARD_HTML
 
-# ─── Entry point ───────────────────────────────────────────────────────────────
+# ─── Startup (runs for BOTH gunicorn and direct python) ───────────────────────
+# NOTE: if __name__ == "__main__" is NOT called by gunicorn.
+# We must initialize the cache and background thread at module level.
+
+log.info("Starting initial data fetch …")
+_refresh_cache()                          # Populate cache immediately on import
+
+_bg_thread = threading.Thread(target=_background_loop, daemon=True)
+_bg_thread.start()
+log.info("Background refresh thread started (interval: %ds).", REFRESH_SECS)
+
+# ─── Entry point (direct python run only) ─────────────────────────────────────
 
 if __name__ == "__main__":
-    log.info("Starting initial data fetch …")
-    _refresh_cache()                      # Fetch once before the server starts
-
-    t = threading.Thread(target=_background_loop, daemon=True)
-    t.start()
-
     log.info("Server running on http://0.0.0.0:%d", PORT)
     app.run(host="0.0.0.0", port=PORT, debug=False)
